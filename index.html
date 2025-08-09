@@ -2,11 +2,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>لعبة شبيهة بالشطرنج – نموذج أولي</title>
+  <title>لعبة شبيهة بالشطرنج – نموذج أولي (AI + ألوان كاملة)</title>
   <style>
     :root{
       --light:#f0d9b5; --dark:#b58863; --board-size:min(88vmin, 720px);
       --ok:#00bfa5; --warn:#f44336; --hint:#90caf9;
+      --green:#1f7a34; --red:#8b1b1b;
     }
     *{box-sizing:border-box}
     body{margin:0; padding:18px; background:#0f141a; color:#e6edf3;
@@ -22,10 +23,10 @@
 .sq{position:relative; width:100%; height:100%;}
 .light{background:var(--light)} .dark{background:var(--dark)}
 
-/* مربعات خاصة */
-.center4::before{content:""; position:absolute; inset:0; background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), transparent 70%); pointer-events:none}
-.center-green::after{content:"أخضر"; position:absolute; top:6px; left:6px; background:#1e7a34; color:#e8f5e9; padding:2px 6px; border-radius:6px; font-size:11px}
-.center-red::after{content:"أحمر"; position:absolute; top:6px; left:6px; background:#9a1c1c; color:#ffebee; padding:2px 6px; border-radius:6px; font-size:11px}
+/* مربعات خاصة – لون كامل بدون أسماء */
+.center4{outline: none}
+.center-green{background: var(--green) !important}
+.center-red{background: var(--red) !important}
 
 /* تمييز التحديد والمسارات */
 .sel{box-shadow: inset 0 0 0 4px var(--hint)}
@@ -50,15 +51,16 @@ button.primary{background:#0d7f71; border-color:transparent}
   <div class="wrap">
     <div class="hud">
       <span class="tag">الدور: <b id="turn">الأبيض</b></span>
-      <span class="tag">الأخضر: الجندي يحصل على حركة وزير لنقلــة واحدة (في دورــه القادم فقط)</span>
+      <span class="tag">الأخضر: الجندي يحصل على حركة وزير لنقلة واحدة (في دوره القادم فقط)</span>
       <span class="tag">الأحمر: أي قطعة تصبح جندي، والجندي يتجمّد دورًا واحدًا</span>
+      <span class="tag">الذكاء الاصطناعي: <b>الأسود</b></span>
     </div><div id="board" class="board" aria-label="لوحة 8×8"></div>
 
 <div class="controls">
   <button id="reset" class="primary">إعادة ضبط</button>
   <button id="toggleHelp">إظهار/إخفاء الملاحظات</button>
 </div>
-<div id="help" class="note">نموذج تجريبي: لا يوجد فحص كش/مات أو قلعة/أخذ بالتجاوز. القواعد الخاصة تعمل كما هي موضحة.</div>
+<div id="help" class="note">نموذج تجريبي: لا يوجد فحص كش/مات أو قلعة/أخذ بالتجاوز. القواعد الخاصة تعمل، والكمبيوتر (الأسود) يلعب تلقائيًا بعد نقلة اللاعب.</div>
 
   </div>  <script>
     // ======= إعداد اللوحة =======
@@ -90,28 +92,18 @@ button.primary{background:#0d7f71; border-color:transparent}
     }
 
     // ======= حالة اللعبة =======
-    /**
-     * قطعة: {
-     *  type:'p/r/n/b/q/k', white:boolean, f:int, r:int,
-     *  boostTurn:int|null,   // إن كان الجندي حصل على Boost، فهذا هو رقم الدور الذي يمكنه استخدامه فيه (دوره القادم فقط)
-     *  skipped:boolean       // للجندي: هل يجب أن يتخطى دوره القادم (تجميد)؟
-     * }
-     */
     let pieces = [];
-    let turnWhite = true; // true=أبيض
-    let turnNumber = 1;   // يزداد بعد كل نقلة (نقلة لاعب واحد)
+    let turnWhite = true; // اللاعب بشري: الأبيض
+    let turnNumber = 1;
 
     function newGame(){
       pieces = [];
-      // بيادق
       for(let f=0; f<8; f++){ pieces.push({type:'p', white:true,  f, r:6, boostTurn:null, skipped:false}); }
       for(let f=0; f<8; f++){ pieces.push({type:'p', white:false, f, r:1, boostTurn:null, skipped:false}); }
-      // صف خلفي كلاسيكي (يمكن تعديله لاحقًا لقِطع مخصّصة)
       const back=['r','n','b','q','k','b','n','r'];
       for(let f=0; f<8; f++){ pieces.push({type:back[f], white:true,  f, r:7, boostTurn:null, skipped:false}); }
       for(let f=0; f<8; f++){ pieces.push({type:back[f], white:false, f, r:0, boostTurn:null, skipped:false}); }
-      turnWhite = true; turnNumber = 1;
-      render();
+      turnWhite = true; turnNumber = 1; selected = null; render();
     }
 
     function at(f,r){ return pieces.find(p=>p.f===f && p.r===r); }
@@ -124,23 +116,15 @@ button.primary{background:#0d7f71; border-color:transparent}
     }
 
     function render(){
-      // تنظيف
       document.querySelectorAll('.piece').forEach(n=>n.remove());
       document.querySelectorAll('.sq').forEach(sq=>sq.classList.remove('sel','move','capture'));
       document.getElementById('turn').textContent = turnWhite ? 'الأبيض' : 'الأسود';
-
-      // رسم القطع
       for(const p of pieces){
         const holder = document.querySelector(`.sq[data-square="${algebraic(p.f,p.r)}"]`);
         if(!holder) continue;
         const el = document.createElement('div'); el.className='piece'; el.textContent=glyph(p);
-        // شارات للحالات
-        if(p.type==='p' && p.boostTurn!==null){
-          const badge=document.createElement('div'); badge.className='badge ok'; badge.textContent='Boost'; el.appendChild(badge);
-        }
-        if(p.type==='p' && p.skipped){
-          const badge=document.createElement('div'); badge.className='badge freeze'; badge.textContent='Freeze'; el.appendChild(badge);
-        }
+        if(p.type==='p' && p.boostTurn!==null){ const b=document.createElement('div'); b.className='badge ok'; b.textContent='Boost'; el.appendChild(b); }
+        if(p.type==='p' && p.skipped){ const b=document.createElement('div'); b.className='badge freeze'; b.textContent='Freeze'; el.appendChild(b); }
         holder.appendChild(el);
       }
     }
@@ -160,25 +144,18 @@ button.primary{background:#0d7f71; border-color:transparent}
     }
 
     function legalMoves(p){
-      // تجميد الجندي: يتخطى هذا الدور
       if(p.type==='p' && p.skipped && p.white===turnWhite) return [];
-
-      // Boost: الجندي يلعب كوزير في دوره القادم فقط
       if(p.type==='p' && p.boostTurn===turnNumber && p.white===turnWhite){
         const ms = rays(p, [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]);
         return ms.map(m=>({...m, tag:'boost'}));
       }
-
       switch(p.type){
         case 'p':{
           const dir = p.white ? -1 : 1;
           const startRank = p.white ? 6 : 1;
           const ms=[];
-          // خطوة أمامية
           if(inside(p.f,p.r+dir) && squareFree(p.f,p.r+dir)) ms.push({f:p.f,r:p.r+dir});
-          // خطوتان من البداية
           if(p.r===startRank && squareFree(p.f,p.r+dir) && squareFree(p.f,p.r+2*dir)) ms.push({f:p.f,r:p.r+2*dir});
-          // أكل قطري
           for(const df of [-1,1]){
             const nf=p.f+df, nr=p.r+dir; if(!inside(nf,nr)) continue; const occ=at(nf,nr);
             if(occ && occ.white!==p.white) ms.push({f:nf,r:nr,capture:true});
@@ -215,52 +192,32 @@ button.primary{background:#0d7f71; border-color:transparent}
     function isRed(name){ return redSquares.has(name); }
 
     function endTurnCleanup(){
-      // 1) إزالة Boost إذا لم يُستخدم في دوره المحدد
       for(const p of pieces){
-        if(p.type==='p' && p.boostTurn===turnNumber && p.white===turnWhite){
-          // كان هذا دور القطعة، ولم تستخدم Boost
-          p.boostTurn = null;
-        }
+        if(p.type==='p' && p.boostTurn===turnNumber && p.white===turnWhite){ p.boostTurn = null; }
       }
-      // 2) فكّ تجميد جنود اللاعب الذي انتهى دوره الآن
       for(const p of pieces){ if(p.type==='p' && p.white===turnWhite && p.skipped) p.skipped=false; }
     }
 
     function movePiece(p, targetF, targetR, tag){
-      // أكل
       const victim = at(targetF,targetR);
       if(victim){ pieces.splice(pieces.indexOf(victim),1); }
-      // نقل
       p.f = targetF; p.r = targetR;
-
       const targetName = algebraic(targetF,targetR);
-      // تأثيرات المربعات الخاصة
-      if(isGreen(targetName) && p.type==='p'){
-        // يمنح حركة وزير في دور اللاعب القادم فقط
-        p.boostTurn = turnNumber + 1 + 1; // الآن دور الخصم (+1)، ثم دور اللاعب نفسه (+1)
-      }
+      if(isGreen(targetName) && p.type==='p'){ p.boostTurn = turnNumber + 2; }
       if(isRed(targetName)){
-        if(p.type==='p'){
-          // تجميد لدور واحد (الدور القادم لنفس اللون)
-          p.skipped = true;
-        } else {
-          // أي قطعة أخرى تتحول لجندي
-          p.type = 'p'; p.boostTurn = null; p.skipped = false;
-          // إن كان على آخر رتبة بعد التحول، ترقية فورية لوزير (لتجنب جندي عالق)
-          if(p.r === 0 || p.r === 7){ p.type = 'q'; }
-        }
+        if(p.type==='p'){ p.skipped = true; }
+        else{ p.type='p'; p.boostTurn=null; p.skipped=false; if(p.r===0||p.r===7) p.type='q'; }
       }
-
-      // إذا كانت هذه نقلة Boost لبيادق، تُستهلك فوراً
-      if(tag==='boost' && p.type==='p'){ p.boostTurn = null; }
-
-      // نهاية الدور
+      if(tag==='boost' && p.type==='p'){ p.boostTurn=null; }
       endTurnCleanup();
       turnWhite = !turnWhite; turnNumber++;
       selected = null; render();
+      // دور الكمبيوتر إن أصبح الأسود
+      if(!turnWhite){ setTimeout(aiMove, 200); }
     }
 
     function onSquareClick(name){
+      if(!turnWhite) return; // انتظار الكمبيوتر
       const {f,r} = parseSquare(name);
       const here = at(f,r);
       if(selected){
@@ -275,6 +232,44 @@ button.primary{background:#0d7f71; border-color:transparent}
     boardEl.querySelectorAll('.sq').forEach(sq=>{
       sq.addEventListener('click', ()=> onSquareClick(sq.dataset.square));
     });
+
+    // ======= ذكاء اصطناعي بسيط (الأسود) =======
+    function allMovesFor(white){
+      const all=[];
+      for(const p of pieces){
+        if(p.white!==white) continue;
+        // احترام التجميد/البوست بنفس منطق legalMoves
+        const currentTurnWhite = white; const savedTurn = turnWhite; const savedNumber = turnNumber;
+        // نحتاج legalMoves كما لو كان دوره
+        const wasTurn = turnWhite; turnWhite = white; // hack بسيط
+        const ms = legalMoves(p).map(m=>({p, ...m}));
+        turnWhite = wasTurn;
+        all.push(...ms);
+      }
+      return all;
+    }
+
+    function valueOfType(t){ return ({p:1,n:3,b:3,r:5,q:9,k:1000})[t]||0; }
+
+    function aiMove(){
+      // تجميع كل النقلات للأسود
+      const moves = allMovesFor(false);
+      if(moves.length===0){ turnWhite=true; render(); return; }
+      // سياسة بسيطة: 1) أولوية للأسر الأعلى قيمة  2) تفضيل الوصول للأخضر بالجندي  3) وإلا عشوائي
+      let best = null; let bestScore = -1e9;
+      for(const m of moves){
+        let score = Math.random()*0.01; // كسر تعادل بسيط
+        const victim = at(m.f,m.r); if(victim) score += valueOfType(victim.type)*10;
+        if(m.tag==='boost') score += 1; // استخدام Boost جيد لكن ليس أولوية على الأسر
+        const name = algebraic(m.f,m.r);
+        const movingPawn = (m.p.type==='p');
+        if(movingPawn && isGreen(name)) score += 2; // الوصول للأخضر مفيد
+        if(isRed(name) && movingPawn) score -= 0.5; // الأحمر يجمّد الجندي
+        if(isRed(name) && !movingPawn) score -= 0.2; // التحول لجندي غالبًا أسوأ
+        if(score>bestScore){ bestScore=score; best=m; }
+      }
+      if(best){ movePiece(best.p, best.f, best.r, best.tag); }
+    }
 
     document.getElementById('reset').addEventListener('click', newGame);
     document.getElementById('toggleHelp').addEventListener('click', ()=>{
