@@ -2,7 +2,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>لعبة شبيهة بالشطرنج – نموذج أولي (AI + ألوان كاملة)</title>
+  <title>لعبة شبيهة بالشطرنج – نموذج أولي (قطع أوضح SVG)</title>
   <style>
     :root{
       --light:#f0d9b5; --dark:#b58863; --board-size:min(88vmin, 720px);
@@ -33,9 +33,13 @@
 .move{outline:3px solid var(--ok); outline-offset:-3px}
 .capture{outline:3px solid var(--warn); outline-offset:-3px}
 
-/* قطع (رموز) */
-.piece{position:absolute; inset:0; display:grid; place-items:center; font-size:clamp(18px,5.2vmin,30px); font-weight:700; color:#0b1416;
-       text-shadow:0 1px 0 rgba(255,255,255,.25)}
+/* قطع (SVG) */
+.piece{position:absolute; inset:0; display:grid; place-items:center}
+.piece svg{ width:85%; height:85%; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+.piece.white svg{ --fill:#fafafa; --stroke:#28303a; }
+.piece.black svg{ --fill:#263238; --stroke:#eaeff4; }
+
+/* شارات للحالات الخاصة */
 .badge{position:absolute; right:6px; bottom:6px; font-size:11px; background:#151b22; color:#e6edf3; border:1px solid rgba(255,255,255,.12); border-radius:6px; padding:2px 6px}
 .badge.ok{background:#0b3b36; border-color:#0d7f71}
 .badge.freeze{background:#3a0b0b; border-color:#a93333}
@@ -109,10 +113,67 @@ button.primary{background:#0d7f71; border-color:transparent}
     function at(f,r){ return pieces.find(p=>p.f===f && p.r===r); }
     function squareFree(f,r){ return !at(f,r); }
 
-    function glyph(p){
-      const W={p:'♙', r:'♖', n:'♘', b:'♗', q:'♕', k:'♔'};
-      const B={p:'♟', r:'♜', n:'♞', b:'♝', q:'♛', k:'♚'};
-      return p.white ? W[p.type] : B[p.type];
+    // ======= رسومات SVG للقطع (واضحة) =======
+    function svgPawn(){
+      return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <g fill="var(--fill)" stroke="var(--stroke)" stroke-width="4" stroke-linejoin="round">
+          <circle cx="50" cy="32" r="12"/>
+          <path d="M35 50h30c6 0 10 4 10 10v4H25v-4c0-6 4-10 10-10z"/>
+          <rect x="22" y="64" width="56" height="10" rx="4"/>
+          <rect x="18" y="76" width="64" height="12" rx="6"/>
+        </g>
+      </svg>`;
+    }
+    function svgRook(){
+      return `<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
+        <g fill='var(--fill)' stroke='var(--stroke)' stroke-width='4' stroke-linejoin='round'>
+          <path d='M22 82h56v10H22z'/>
+          <path d='M28 34h44v10H28z'/>
+          <path d='M30 44h40l-6 26H36z'/>
+          <path d='M24 24h12v8h10v-8h8v8h10v-8h12v12H24z'/>
+        </g>
+      </svg>`;
+    }
+    function svgKnight(){
+      return `<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
+        <g fill='var(--fill)' stroke='var(--stroke)' stroke-width='4' stroke-linejoin='round'>
+          <path d='M70 26c-10 0-20 6-28 16l-8 10 10 6-8 8v10h40l8-28c-4-10-8-22-14-22z'/>
+          <circle cx='60' cy='36' r='3' fill='var(--stroke)'/>
+          <rect x='22' y='80' width='56' height='10' rx='5'/>
+        </g>
+      </svg>`;
+    }
+    function svgBishop(){
+      return `<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
+        <g fill='var(--fill)' stroke='var(--stroke)' stroke-width='4' stroke-linejoin='round'>
+          <path d='M50 20c10 8 14 18 0 28-14-10-10-20 0-28z'/>
+          <path d='M34 54h32c6 0 10 4 10 10v4H24v-4c0-6 4-10 10-10z'/>
+          <rect x='24' y='72' width='52' height='8' rx='4'/>
+          <rect x='18' y='82' width='64' height='10' rx='6'/>
+        </g>
+      </svg>`;
+    }
+    function svgQueen(){
+      return `<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
+        <g fill='var(--fill)' stroke='var(--stroke)' stroke-width='4' stroke-linejoin='round'>
+          <path d='M20 32l12 18 8-18 10 22 10-22 8 18 12-18-10 38H30z'/>
+          <rect x='22' y='74' width='56' height='10' rx='5'/>
+          <rect x='18' y='86' width='64' height='10' rx='6'/>
+        </g>
+      </svg>`;
+    }
+    function svgKing(){
+      return `<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
+        <g fill='var(--fill)' stroke='var(--stroke)' stroke-width='4' stroke-linejoin='round'>
+          <path d='M46 16h8v10h10v8H54v10h-8V34H36v-8h10z'/>
+          <path d='M30 58h40c6 0 10 4 10 10v6H20v-6c0-6 4-10 10-10z'/>
+          <rect x='22' y='80' width='56' height='10' rx='5'/>
+        </g>
+      </svg>`;
+    }
+    function svgFor(p){
+      const map={p:svgPawn, r:svgRook, n:svgKnight, b:svgBishop, q:svgQueen, k:svgKing};
+      return (map[p.type]||svgPawn)();
     }
 
     function render(){
@@ -122,7 +183,8 @@ button.primary{background:#0d7f71; border-color:transparent}
       for(const p of pieces){
         const holder = document.querySelector(`.sq[data-square="${algebraic(p.f,p.r)}"]`);
         if(!holder) continue;
-        const el = document.createElement('div'); el.className='piece'; el.textContent=glyph(p);
+        const el = document.createElement('div'); el.className='piece '+(p.white?'white':'black');
+        el.innerHTML = svgFor(p);
         if(p.type==='p' && p.boostTurn!==null){ const b=document.createElement('div'); b.className='badge ok'; b.textContent='Boost'; el.appendChild(b); }
         if(p.type==='p' && p.skipped){ const b=document.createElement('div'); b.className='badge freeze'; b.textContent='Freeze'; el.appendChild(b); }
         holder.appendChild(el);
@@ -175,19 +237,7 @@ button.primary{background:#0d7f71; border-color:transparent}
       return [];
     }
 
-    // ======= تفاعل =======
-    let selected = null;
-
-    function highlight(moves){
-      document.querySelectorAll('.sq').forEach(sq=>sq.classList.remove('sel','move','capture'));
-      if(!selected) return;
-      document.querySelector(`.sq[data-square="${algebraic(selected.f,selected.r)}"]`).classList.add('sel');
-      for(const m of moves){
-        const t = document.querySelector(`.sq[data-square="${algebraic(m.f,m.r)}"]`);
-        t.classList.add(m.capture? 'capture':'move');
-      }
-    }
-
+    // ======= تفاعل وذكاء اصطناعي =======
     function isGreen(name){ return greenSquares.has(name); }
     function isRed(name){ return redSquares.has(name); }
 
@@ -212,8 +262,18 @@ button.primary{background:#0d7f71; border-color:transparent}
       endTurnCleanup();
       turnWhite = !turnWhite; turnNumber++;
       selected = null; render();
-      // دور الكمبيوتر إن أصبح الأسود
       if(!turnWhite){ setTimeout(aiMove, 200); }
+    }
+
+    let selected = null;
+    function highlight(moves){
+      document.querySelectorAll('.sq').forEach(sq=>sq.classList.remove('sel','move','capture'));
+      if(!selected) return;
+      document.querySelector(`.sq[data-square="${algebraic(selected.f,selected.r)}"]`).classList.add('sel');
+      for(const m of moves){
+        const t = document.querySelector(`.sq[data-square="${algebraic(m.f,m.r)}"]`);
+        t.classList.add(m.capture? 'capture':'move');
+      }
     }
 
     function onSquareClick(name){
@@ -233,15 +293,11 @@ button.primary{background:#0d7f71; border-color:transparent}
       sq.addEventListener('click', ()=> onSquareClick(sq.dataset.square));
     });
 
-    // ======= ذكاء اصطناعي بسيط (الأسود) =======
     function allMovesFor(white){
       const all=[];
       for(const p of pieces){
         if(p.white!==white) continue;
-        // احترام التجميد/البوست بنفس منطق legalMoves
-        const currentTurnWhite = white; const savedTurn = turnWhite; const savedNumber = turnNumber;
-        // نحتاج legalMoves كما لو كان دوره
-        const wasTurn = turnWhite; turnWhite = white; // hack بسيط
+        const wasTurn = turnWhite; turnWhite = white; // للسماح بتوليد النقلات بنفس القواعد
         const ms = legalMoves(p).map(m=>({p, ...m}));
         turnWhite = wasTurn;
         all.push(...ms);
@@ -252,20 +308,18 @@ button.primary{background:#0d7f71; border-color:transparent}
     function valueOfType(t){ return ({p:1,n:3,b:3,r:5,q:9,k:1000})[t]||0; }
 
     function aiMove(){
-      // تجميع كل النقلات للأسود
       const moves = allMovesFor(false);
       if(moves.length===0){ turnWhite=true; render(); return; }
-      // سياسة بسيطة: 1) أولوية للأسر الأعلى قيمة  2) تفضيل الوصول للأخضر بالجندي  3) وإلا عشوائي
       let best = null; let bestScore = -1e9;
       for(const m of moves){
-        let score = Math.random()*0.01; // كسر تعادل بسيط
+        let score = Math.random()*0.01;
         const victim = at(m.f,m.r); if(victim) score += valueOfType(victim.type)*10;
-        if(m.tag==='boost') score += 1; // استخدام Boost جيد لكن ليس أولوية على الأسر
+        if(m.tag==='boost') score += 1;
         const name = algebraic(m.f,m.r);
         const movingPawn = (m.p.type==='p');
-        if(movingPawn && isGreen(name)) score += 2; // الوصول للأخضر مفيد
-        if(isRed(name) && movingPawn) score -= 0.5; // الأحمر يجمّد الجندي
-        if(isRed(name) && !movingPawn) score -= 0.2; // التحول لجندي غالبًا أسوأ
+        if(movingPawn && isGreen(name)) score += 2;
+        if(isRed(name) && movingPawn) score -= 0.5;
+        if(isRed(name) && !movingPawn) score -= 0.2;
         if(score>bestScore){ bestScore=score; best=m; }
       }
       if(best){ movePiece(best.p, best.f, best.r, best.tag); }
